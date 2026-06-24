@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>VidhayaBhawan Bada - Teacher Lecture Timetable & Payroll Management</title>
+  <meta name="description" content="A premium School Management System for Teacher Lecture Schedules, Timetables tracking, and automated Payroll ledger.">
+  <!-- CSS Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Header (Visible when logged in) -->
+  <header class="app-header hidden" id="main-header">
+    <div class="logo-container">
+      <div class="logo-icon">V</div>
+      <div class="logo-text">VidhayaBhawan Bada</div>
+    </div>
+    
+    <!-- Quick Debug / Month-End Simulator (Principal Only) -->
+    <div id="debug-sim-container" class="hidden">
+      <button class="btn btn-outline btn-small" id="btn-simulate-month-end" title="Simulate calendar month-end to trigger automated payroll review alert">
+        ⚡ Simulate Month-End
+      </button>
+      <button class="btn btn-danger btn-small" id="btn-reset-db" title="Reset all databases to default seed data" style="margin-left: 8px;">
+        ⚠️ Reset Database
+      </button>
+    </div>
+
+    <div class="user-profile-widget">
+      <div class="user-badge">
+        <span class="user-name" id="header-user-name">Loading...</span>
+        <span class="user-role" id="header-user-role">Teacher</span>
+      </div>
+      <button class="btn btn-outline btn-small" id="btn-logout">Logout</button>
+    </div>
+  </header>
+
+  <!-- Main Viewport Container -->
+  <main class="auth-wrapper" id="view-container">
+
+    <!-- 1. AUTHENTICATION PAGE (Login & Registration SPA Card) -->
+    <div class="glass-panel auth-card" id="view-auth">
+      <div class="auth-logo">
+        <div class="logo-icon">V</div>
+        <h1 style="font-size: 1.8rem; margin: 0;">VidhayaBhawan Bada Portal</h1>
+        <p class="auth-subtitle" id="auth-card-subtitle">Sign in to your dashboard</p>
+      </div>
+
+      <div class="auth-alert" id="auth-error-alert">Invalid credentials. Please try again.</div>
+
+      <!-- Container A: Sign In Form -->
+      <div id="auth-signin-container">
+        <form id="login-form">
+          <div class="form-group">
+            <label class="form-label" for="username">Username</label>
+            <input type="text" id="username" class="form-control" placeholder="Enter username" required autocomplete="username">
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="password">Password</label>
+            <input type="password" id="password" class="form-control" placeholder="Enter password" required autocomplete="current-password">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px; margin-top: 10px;">
+            Sign In
+          </button>
+        </form>
+        <p style="margin-top: 20px; text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
+          New Teacher? <a href="#" id="link-to-signup" style="color: var(--accent-primary); text-decoration: none; font-weight: 600; transition: color var(--transition-fast);">Register Account</a>
+        </p>
+
+      </div>
+
+      <!-- Container B: Sign Up Form (Teacher-Exclusive, No Salaries/Rates Input) -->
+      <div id="auth-signup-container" class="hidden">
+        <form id="signup-form">
+          <div class="form-group">
+            <label class="form-label" for="signup-fullname">Full Name</label>
+            <input type="text" id="signup-fullname" class="form-control" placeholder="e.g. Alice Smith" required>
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="signup-username">Personal Username</label>
+            <input type="text" id="signup-username" class="form-control" placeholder="e.g. alice_smith" required autocomplete="username">
+          </div>
+          
+          <div class="form-group">
+            <label class="form-label" for="signup-password">Personal Password</label>
+            <input type="password" id="signup-password" class="form-control" placeholder="••••••••" required autocomplete="new-password">
+          </div>
+
+          <button type="submit" class="btn btn-secondary" style="width: 100%; padding: 12px; margin-top: 15px;">
+            Create Teacher Account
+          </button>
+        </form>
+        <p style="margin-top: 20px; text-align: center; font-size: 0.9rem; color: var(--text-secondary);">
+          Already have an account? <a href="#" id="link-to-signin" style="color: var(--accent-primary); text-decoration: none; font-weight: 600; transition: color var(--transition-fast);">Sign In</a>
+        </p>
+      </div>
+
+    </div>
+
+    <!-- 2. TEACHER DASHBOARD (Restricted View) -->
+    <div class="dashboard-container hidden" id="view-teacher">
+      
+      <!-- Statistics Row -->
+      <div class="stats-grid">
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Lectures Today</span>
+            <div class="stat-icon">📚</div>
+          </div>
+          <div class="stat-value" id="t-stat-rate">0</div>
+          <div class="stat-desc">Total scheduled classes today</div>
+        </div>
+        
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Leaves Submitted</span>
+            <div class="stat-icon">📥</div>
+          </div>
+          <div class="stat-value" id="t-stat-hours">0</div>
+          <div class="stat-desc">Pending leave request submissions</div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Next Class Time</span>
+            <div class="stat-icon">⏱️</div>
+          </div>
+          <div class="stat-value" id="t-stat-leaves" style="font-size: 1.5rem; display: flex; align-items: center; height: 32px;">N/A</div>
+          <div class="stat-desc">Start time of your upcoming lecture</div>
+        </div>
+      </div>
+
+      <!-- Dashboard Layout Split -->
+      <div class="dashboard-split">
+        
+        <!-- Left Column: Current Lecture Status & Leaves Form -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          
+          <!-- Clock & Lecture Tracker Widget -->
+          <div class="glass-panel clock-widget" style="text-align: left; align-items: flex-start;">
+            <div style="display: flex; justify-content: space-between; width: 100%; border-bottom: 1px solid var(--border-glass); padding-bottom: 12px; margin-bottom: 15px;">
+              <div class="digital-date" id="live-date" style="margin: 0; align-self: center;">Wednesday, June 24, 2026</div>
+              <div class="digital-clock" id="live-time" style="font-size: 1.5rem; margin: 0; align-self: center;">09:54 AM</div>
+            </div>
+
+            <!-- Conducting Now Card -->
+            <div style="width: 100%; margin-bottom: 15px;">
+              <span class="form-label" style="font-size: 0.75rem; color: var(--accent-primary);">Conducting Now</span>
+              <div id="lecture-now-card" class="glass-panel" style="background: hsla(172, 80%, 10%, 0.4); border-color: var(--border-active); margin-top: 5px; padding: 15px; position: relative; overflow: hidden;">
+                <div style="font-weight: 700; font-size: 1.15rem;" id="lec-now-subject">Mathematics</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;" id="lec-now-class">Grade 10-A</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;" id="lec-now-time">08:30 AM - 09:30 AM</div>
+                <span class="dot dot-green" style="position: absolute; top: 15px; right: 15px; animation: pulse 2s infinite;"></span>
+              </div>
+            </div>
+
+            <!-- Up Next Card -->
+            <div style="width: 100%;">
+              <span class="form-label" style="font-size: 0.75rem; color: var(--accent-secondary);">Up Next</span>
+              <div id="lecture-next-card" class="glass-panel" style="background: hsla(239, 84%, 15%, 0.2); margin-top: 5px; padding: 15px;">
+                <div style="font-weight: 600; font-size: 1rem;" id="lec-next-subject">Geometry</div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 4px;" id="lec-next-class">Grade 9-B</div>
+                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 8px;" id="lec-next-time">09:45 AM - 10:45 AM</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Leave Request Form -->
+          <div class="glass-panel section-card">
+            <div class="section-header">
+              <div class="section-title-combo">
+                <h3>Submit Leave Request</h3>
+                <span class="section-subtitle">Apply for planned or sick absence</span>
+              </div>
+            </div>
+
+            <form id="leave-request-form">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                <div class="form-group">
+                  <label class="form-label" for="leave-start-date">Start Date</label>
+                  <input type="date" id="leave-start-date" class="form-control" required>
+                </div>
+                <div class="form-group">
+                  <label class="form-label" for="leave-end-date">End Date</label>
+                  <input type="date" id="leave-end-date" class="form-control" required>
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label" for="leave-type">Leave Type</label>
+                <select id="leave-type" class="form-control" required>
+                  <option value="Sick">Sick Leave</option>
+                  <option value="Casual">Casual Leave</option>
+                  <option value="Maternity">Maternity Leave</option>
+                  <option value="Paternity">Paternity Leave</option>
+                  <option value="Unpaid">Unpaid Absence</option>
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label class="form-label" for="leave-reason">Reason for Absence</label>
+                <textarea id="leave-reason" class="form-control" placeholder="Provide details about your leave request..." required></textarea>
+              </div>
+
+              <button type="submit" class="btn btn-primary" style="width: 100%;">
+                Submit Request
+              </button>
+            </form>
+          </div>
+
+        </div>
+
+        <!-- Right Column: My Timetable Schedule & Leaves Tracker -->
+        <div style="display: flex; flex-direction: column; gap: 30px;">
+          
+          <!-- Timetable Schedule -->
+          <div class="glass-panel section-card">
+            <div class="section-header">
+              <div class="section-title-combo">
+                <h3>My Daily Lecture Schedule</h3>
+                <span class="section-subtitle">Timetable of assigned lectures decided by the Principal</span>
+              </div>
+            </div>
+            
+            <div class="table-responsive" style="max-height: 350px;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Time Slot</th>
+                    <th>Subject / Topic</th>
+                    <th>Class Room</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="teacher-attendance-logs">
+                  <!-- Rendered dynamically (Renders Scheduled Lectures) -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Leave History -->
+          <div class="glass-panel section-card">
+            <div class="section-header">
+              <div class="section-title-combo">
+                <h3>Leave Applications</h3>
+                <span class="section-subtitle">Real-time status of your submissions</span>
+              </div>
+            </div>
+
+            <div class="table-responsive" style="max-height: 250px;">
+              <table class="custom-table">
+                <thead>
+                  <tr>
+                    <th>Type</th>
+                    <th>Dates</th>
+                    <th>Reason</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="teacher-leave-logs">
+                  <!-- Rendered dynamically -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+
+    <!-- 3. PRINCIPAL DASHBOARD (Global Administrative View) -->
+    <div class="dashboard-container hidden" id="view-principal">
+      
+      <!-- Top Stats Row -->
+      <div class="stats-grid">
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Lectures Assigned</span>
+            <div class="stat-icon">🏫</div>
+          </div>
+          <div class="stat-value" id="p-stat-hours">0</div>
+          <div class="stat-desc">Total scheduled classes in the timetable</div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Staff Headcount</span>
+            <div class="stat-icon">👥</div>
+          </div>
+          <div class="stat-value" id="p-stat-count">0</div>
+          <div class="stat-desc">Active teachers onboarded</div>
+        </div>
+
+        <div class="glass-panel stat-card">
+          <div class="stat-header">
+            <span class="stat-title">Pending Leaves</span>
+            <div class="stat-icon">📥</div>
+          </div>
+          <div class="stat-value" id="p-stat-pending" style="color: var(--color-warning);">0</div>
+          <div class="stat-desc">Teacher leave applications awaiting review</div>
+        </div>
+      </div>
+
+      <!-- Navigation Tabs for Principal Subviews -->
+      <div class="tab-navigation">
+        <button class="tab-btn active" id="p-tab-dashboard-btn" onclick="switchPrincipalTab('dashboard')">
+          Master Lecture Scheduler
+        </button>
+        <button class="tab-btn" id="p-tab-leaves-btn" onclick="switchPrincipalTab('leaves')">
+          Leave Requests Inbox
+        </button>
+        <button class="tab-btn" id="p-tab-payroll-btn" onclick="switchPrincipalTab('payroll')">
+          Salary & Payroll Ledger
+        </button>
+        <button class="tab-btn" id="p-tab-staff-btn" onclick="switchPrincipalTab('staff')">
+          Manage Staff Directory
+        </button>
+      </div>
+
+      <!-- Interactive Month-End Automated Alert Banner (Principal-Only) -->
+      <div class="notification-banner hidden" id="payroll-review-banner">
+        <div class="notification-content">
+          <div class="notification-icon">🔔</div>
+          <div class="notification-text">
+            <span class="notification-title">Automated Payroll System Reminder</span>
+            <span class="notification-desc">The calendar month-end has been reached. Please review teacher timetables, finalize outstanding base salaries, and clear payroll payments.</span>
+          </div>
+        </div>
+        <button class="btn btn-secondary btn-small" onclick="switchPrincipalTab('payroll')">Review Payroll</button>
+      </div>
+
+      <!-- Tab View 1: Master Lecture Scheduler -->
+      <div class="dashboard-split" id="principal-tab-dashboard">
+        
+        <!-- Left Column: Master Timetable Control -->
+        <div class="glass-panel section-card">
+          <div class="section-header">
+            <div class="section-title-combo">
+              <h3>Master Lecture Timetable</h3>
+              <span class="section-subtitle">Full permissions to schedule, modify, and decide teacher lecture schedules</span>
+            </div>
+            <div class="flex-row-center">
+              <select id="p-override-filter-teacher" class="form-control" style="padding: 6px 12px; font-size: 0.85rem;">
+                <!-- Filled dynamically -->
+              </select>
+              <button class="btn btn-primary btn-small" onclick="openLectureModal()">
+                ➕ Add Lecture
+              </button>
+            </div>
+          </div>
+
+          <div class="table-responsive">
+            <table class="custom-table">
+              <thead>
+                <tr>
+                  <th>Teacher</th>
+                  <th>Subject / Topic</th>
+                  <th>Class Room</th>
+                  <th>Time Slot</th>
+                  <th class="text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="principal-attendance-records">
+                <!-- Rendered dynamically (Renders Lecture Timetables) -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right Column: Visual Analytics -->
+        <div class="glass-panel section-card">
+          <div class="section-header">
+            <div class="section-title-combo">
+              <h3>Timetable Trends</h3>
+              <span class="section-subtitle">Monthly scheduled load distribution</span>
+            </div>
+          </div>
+
+          <p style="font-size: 0.9rem;"><strong>Monthly School Lecture Load Rates (2026)</strong></p>
+          
+          <!-- Custom Vector CSS Visual Chart -->
+          <div class="chart-container" id="principal-attendance-chart">
+            <div class="chart-y-axis">
+              <div class="chart-grid-line"></div>
+              <div class="chart-grid-line"></div>
+              <div class="chart-grid-line"></div>
+            </div>
+            <!-- Bars rendered dynamically -->
+          </div>
+
+          <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 10px;">
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+              <span>High-Load Period:</span>
+              <strong id="analytics-peak-month" style="color: var(--accent-primary);">N/A</strong>
+            </div>
+            <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
+              <span>Total Scheduled Lectures:</span>
+              <strong id="analytics-annual-hours">0 lectures</strong>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Tab View 2: Leave Approvals Inbox -->
+      <div class="glass-panel section-card hidden" id="principal-tab-leaves">
+        <div class="section-header">
+          <div class="section-title-combo">
+            <h3>Leaves Inbox</h3>
+            <span class="section-subtitle">Review, approve, or reject incoming teacher absence applications</span>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Teacher Name</th>
+                <th>Leave Type</th>
+                <th>Duration</th>
+                <th>Reason</th>
+                <th>Applied On</th>
+                <th>Reviewer Comment</th>
+                <th class="text-right">Decisions</th>
+              </tr>
+            </thead>
+            <tbody id="principal-leaves-inbox">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab View 3: Salary & Payroll Ledger -->
+      <div class="glass-panel section-card hidden" id="principal-tab-payroll">
+        <div class="section-header">
+          <div class="section-title-combo">
+            <h3>Salary Tracker Ledger</h3>
+            <span class="section-subtitle">Settling flat teacher base salaries and payment logs</span>
+          </div>
+          <div class="ledger-totals">
+            <div class="ledger-total-item">
+              <span class="ledger-total-label">Total Payout Budget</span>
+              <span class="ledger-total-value" id="ledger-tot-budget">$0.00</span>
+            </div>
+            <div class="ledger-total-item">
+              <span class="ledger-total-label">Total Settled</span>
+              <span class="ledger-total-value green" id="ledger-tot-settled">$0.00</span>
+            </div>
+            <div class="ledger-total-item">
+              <span class="ledger-total-label">Outstanding Balance</span>
+              <span class="ledger-total-value indigo" id="ledger-tot-pending">$0.00</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Teacher Name</th>
+                <th>Month</th>
+                <th>Base Salary</th>
+                <th>Calculated Payout</th>
+                <th>Paid Amount</th>
+                <th>Pending Balance</th>
+                <th>Status</th>
+                <th class="text-right">Action</th>
+              </tr>
+            </thead>
+            <tbody id="principal-payroll-ledger">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tab View 4: Manage Staff Directory -->
+      <div class="glass-panel section-card hidden" id="principal-tab-staff">
+        <div class="section-header">
+          <div class="section-title-combo">
+            <h3>Staff Directory</h3>
+            <span class="section-subtitle">Manage personal logins and baseline salaries for your teachers</span>
+          </div>
+          <button class="btn btn-primary" onclick="openStaffModal()">
+            ➕ Add New Teacher
+          </button>
+        </div>
+
+        <div class="table-responsive">
+          <table class="custom-table">
+            <thead>
+              <tr>
+                <th>Full Name</th>
+                <th>Username</th>
+                <th>Base Salary</th>
+                <th class="text-right">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="principal-staff-list">
+              <!-- Rendered dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <!-- ================= MODAL WINDOWS ================= -->
+
+  <!-- Modal 1: Principal Schedule/Edit Lecture (Decide Timetable) -->
+  <div class="modal" id="lecture-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="lecture-modal-title">Schedule Lecture</h3>
+        <button class="modal-close" onclick="closeModal('lecture-modal')">&times;</button>
+      </div>
+      <form id="lecture-form">
+        <input type="hidden" id="lecture-id">
+        
+        <div class="form-group" id="lecture-teacher-group">
+          <label class="form-label" for="lecture-teacher-select">Select Teacher</label>
+          <select id="lecture-teacher-select" class="form-control" required>
+            <!-- Filled dynamically -->
+          </select>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="lecture-subject">Subject / Topic</label>
+          <input type="text" id="lecture-subject" class="form-control" placeholder="e.g. Mathematics" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="lecture-class">Class Room / Grade</label>
+          <input type="text" id="lecture-class" class="form-control" placeholder="e.g. Grade 10-A" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="lecture-timeslot">Time Slot Label</label>
+          <input type="text" id="lecture-timeslot" class="form-control" placeholder="e.g. 08:30 AM - 09:30 AM" required>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+          <div class="form-group">
+            <label class="form-label" for="lecture-starttime">Start Time (24h)</label>
+            <input type="time" id="lecture-starttime" class="form-control" required>
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="lecture-endtime">End Time (24h)</label>
+            <input type="time" id="lecture-endtime" class="form-control" required>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('lecture-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="lecture-submit-btn">Schedule</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 2: Principal Settle Payout -->
+  <div class="modal" id="pay-salary-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3>Process Salary Payment</h3>
+        <button class="modal-close" onclick="closeModal('pay-salary-modal')">&times;</button>
+      </div>
+      <form id="pay-salary-form">
+        <input type="hidden" id="pay-salary-record-id">
+        <div style="margin-bottom: 20px; display: flex; flex-direction: column; gap: 10px; font-size: 0.95rem;">
+          <div>Teacher Name: <strong id="pay-salary-name-label">Alice Smith</strong></div>
+          <div>Payroll Period: <strong id="pay-salary-period-label">06-2026</strong></div>
+          <div>Calculated Monthly Payout: <strong id="pay-salary-payout-label">$0.00</strong></div>
+          <div>Pending Balance: <strong id="pay-salary-balance-label" style="color: var(--accent-secondary); font-size: 1.1rem;">$0.00</strong></div>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="pay-amount-input">Payment Amount ($)</label>
+          <input type="number" step="0.01" min="0.01" id="pay-amount-input" class="form-control" required>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('pay-salary-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary">Process Payment</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Modal 3: Principal Add/Edit Staff -->
+  <div class="modal" id="staff-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 id="staff-modal-title">Add New Teacher</h3>
+        <button class="modal-close" onclick="closeModal('staff-modal')">&times;</button>
+      </div>
+      <form id="staff-form">
+        <input type="hidden" id="staff-user-id">
+        
+        <div class="form-group">
+          <label class="form-label" for="staff-fullname">Full Name</label>
+          <input type="text" id="staff-fullname" class="form-control" placeholder="e.g. John Doe" required>
+        </div>
+        
+        <div class="form-group">
+          <label class="form-label" for="staff-username">Username (Personal Login)</label>
+          <input type="text" id="staff-username" class="form-control" placeholder="e.g. teacher_john" required>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="staff-password" id="staff-password-label">Password</label>
+          <input type="password" id="staff-password" class="form-control" placeholder="••••••••">
+          <span style="font-size:0.75rem; color:var(--text-muted);" id="staff-password-hint">Leave blank to keep current password when editing.</span>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="staff-base-salary">Monthly Base Pay ($)</label>
+          <input type="number" step="0.01" min="0" id="staff-base-salary" class="form-control" placeholder="e.g. 4000.00" required>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn btn-outline" onclick="closeModal('staff-modal')">Cancel</button>
+          <button type="submit" class="btn btn-primary" id="staff-submit-btn">Save Teacher</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Embedded JS Relational Database Layer -->
+  <script src="database.js"></script>
+  <!-- Main Controller logic -->
+  <script src="app.js"></script>
+</body>
+</html>
